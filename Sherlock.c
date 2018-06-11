@@ -7,6 +7,9 @@
 #define MAX_CHAR 1024
 #define WORDQ 2000
 #define PROBABILISTIC_PERC 15
+#define MUTATION_PERC 12
+#define MUTATION_DEC 0.3
+#define ALL_COMBINATIONS 65536 //2^16
 
 
 
@@ -316,7 +319,46 @@ int searchRepeatedCode(char *text){
 }
 
 void geneticCode(int varErr, int magicNum, int excepErr, int repeatNum){
+	//GENOTIPO
+	int varWeight[2];
+	varWeight[0] = 0;
+	varWeight[1] = (ceil(ALL_COMBINATIONS * 0.22))-1; // 0-14417 (14.417,92)
+	int magicNumWeight[2];
+	magicNumWeight[0] = varWeight[1]+1;
+	magicNumWeight[1] = magicNumWeight[0]+floor(ALL_COMBINATIONS * 0.18)-1; //14418-26213 (11.796,48)
+	int excepErrWeight[2];
+	excepErrWeight[0] = magicNumWeight[1]+1;
+	excepErrWeight[1] = excepErrWeight[0]+(ALL_COMBINATIONS * 0.25)-1; // 26214-42597 (16.384)
+	int repeatWeight[2];
+	repeatWeight[0] = excepErrWeight[1]+1;
+	repeatWeight[1] = repeatWeight[0]+ceil(ALL_COMBINATIONS * 0.35)-1; // 42598-65535 (22.937,6)
 
+	int population[varErr+magicNum+excepErr+repeatNum];
+	int generalIndividual=0;
+	int rangeValues = varWeight[1];
+	for(int currentIndividual=0; currentIndividual<varErr; currentIndividual++){
+		population[generalIndividual] = rand()%rangeValues;
+		generalIndividual++;
+	}
+	rangeValues=magicNumWeight[1]-magicNumWeight[0];
+	for(int currentIndividual=0; currentIndividual<magicNum; currentIndividual++){
+		population[generalIndividual] = magicNumWeight[1]-rand()%rangeValues;
+		generalIndividual++;
+	}
+	rangeValues = excepErrWeight[1] - excepErrWeight[0];
+	for(int currentIndividual=0; currentIndividual<excepErr; currentIndividual++){
+		population[generalIndividual] = excepErrWeight[1]-rand()%rangeValues;
+		generalIndividual++;
+	}
+	rangeValues = repeatWeight[1]-repeatWeight[0];
+	for(int currentIndividual=0; currentIndividual<repeatNum; currentIndividual++){
+		population[generalIndividual] = repeatWeight[1]-rand()%rangeValues;
+		generalIndividual++;
+	}
+
+	for(int i=0; i<generalIndividual; i++){
+		printf("%i\n", population[i]);
+	}
 }
 
 int main(int argc, char *argv[])
@@ -327,23 +369,22 @@ int main(int argc, char *argv[])
 	int exceptionErrors = 0;
 	int repeatedCodeFound = 0;
 
+	#pragma omp parallel for
 	for(int fileIndex=1; fileIndex<argc; fileIndex++){
 		fileText = ReadDocument(argv[fileIndex], fileText);
 
-		#pragma omp parallel
+		#pragma omp task
 		variableErrors += searchVariablesErrors(fileText);
-		#pragma omp parallel
+		#pragma omp task
 		magicNumbersFound += searchMagicNumbers(fileText);
-		#pragma omp parallel
+		#pragma omp task
 		exceptionErrors += searchExceptionErrors(fileText);
-		#pragma omp parallel
+		#pragma omp task
 		repeatedCodeFound += searchRepeatedCode(fileText);
 	}
-	printf("%i\n", variableErrors);
-	printf("%i\n", magicNumbersFound);
-	printf("%i\n", exceptionErrors);
-	printf("%i\n", repeatedCodeFound);
+	
 
+	#pragma omp taskwait
 	geneticCode(variableErrors, magicNumbersFound, exceptionErrors, repeatedCodeFound);
 
 	
